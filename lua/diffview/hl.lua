@@ -427,6 +427,9 @@ function M.get_hl_groups()
     Dim1 = { fg = M.get_fg("Comment") or colors.white },
     Primary = { fg = M.get_fg("Function") or "Purple" },
     Secondary = { fg = M.get_fg("String") or "Orange" },
+    -- Unified diff view highlights
+    UnifiedWordAdd = { fg = M.get_fg("diffAdded") or colors.green, style = "bold" },
+    UnifiedWordDelete = { fg = M.get_fg("diffRemoved") or colors.red, style = "bold,strikethrough" },
   }
 end
 
@@ -466,6 +469,11 @@ M.hl_links = {
   DiffDelete = "DiffDelete",
   DiffChange = "DiffChange",
   DiffText = "DiffText",
+  -- Unified diff view
+  UnifiedAdd = "DiffAdd",
+  UnifiedDelete = "DiffDelete",
+  UnifiedChange = "DiffChange",
+  UnifiedContext = "Normal",
 }
 
 function M.update_diff_hl()

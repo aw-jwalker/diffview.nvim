@@ -15,6 +15,7 @@ local Diff3Mixed = lazy.access("diffview.scene.layouts.diff_3_mixed", "Diff3Mixe
 local Diff3Ver = lazy.access("diffview.scene.layouts.diff_3_ver", "Diff3Ver") ---@type Diff3Hor|LazyModule
 local Diff4 = lazy.access("diffview.scene.layouts.diff_4", "Diff4") ---@type Diff4|LazyModule
 local Diff4Mixed = lazy.access("diffview.scene.layouts.diff_4_mixed", "Diff4Mixed") ---@type Diff4Mixed|LazyModule
+local DiffUnified = lazy.access("diffview.scene.layouts.diff_unified", "DiffUnified") ---@type DiffUnified|LazyModule
 local utils = lazy.require("diffview.utils") ---@module "diffview.utils"
 
 local M = {}
@@ -380,6 +381,7 @@ end
 ---@alias LayoutName "diff1_plain"
 ---       | "diff2_horizontal"
 ---       | "diff2_vertical"
+---       | "diff_unified"
 ---       | "diff3_horizontal"
 ---       | "diff3_vertical"
 ---       | "diff3_mixed"
@@ -389,6 +391,7 @@ local layout_map = {
   diff1_plain = Diff1,
   diff2_horizontal = Diff2Hor,
   diff2_vertical = Diff2Ver,
+  diff_unified = DiffUnified,
   diff3_horizontal = Diff3Hor,
   diff3_vertical = Diff3Ver,
   diff3_mixed = Diff3Mixed,
@@ -407,6 +410,9 @@ end
 ---@return table?
 function M.get_layout_keymaps(layout)
   if layout:instanceof(Diff1.__get()) then
+    return M._config.keymaps.diff1
+  elseif layout:instanceof(DiffUnified.__get()) then
+    -- DiffUnified uses diff1 keymaps (single window layout)
     return M._config.keymaps.diff1
   elseif layout:instanceof(Diff2.__get()) then
     return M._config.keymaps.diff2
@@ -576,7 +582,7 @@ function M.setup(user_config)
   do
     -- Validate layouts
     local view = M._config.view
-    local standard_layouts = { "diff2_horizontal", "diff2_vertical", -1 }
+    local standard_layouts = { "diff2_horizontal", "diff2_vertical", "diff_unified", -1 }
     local merge_layuots = {
       "diff1_plain",
       "diff3_horizontal",
