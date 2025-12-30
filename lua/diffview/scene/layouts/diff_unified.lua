@@ -19,6 +19,9 @@ local await = async.await
 
 local M = {}
 
+-- Create namespace at module load time (not in async context)
+local UNIFIED_NS = api.nvim_create_namespace("diffview_unified")
+
 ---@class DiffUnified : Layout
 ---@field a vcs.File? Reference to the "old" file (for fetching content)
 ---@field b Window The main window showing the "new" file
@@ -42,7 +45,7 @@ function DiffUnified:init(opt)
   self.a = opt.a and { file = opt.a } or nil
   self.b = Window({ file = opt.b, id = opt.winid_b })
   self:use_windows(self.b)
-  self.ns_id = api.nvim_create_namespace("diffview_unified_" .. tostring(self))
+  self.ns_id = UNIFIED_NS  -- Use shared namespace (created at module load)
   self.old_lines = nil
 end
 
@@ -126,11 +129,25 @@ DiffUnified.render_unified = async.void(function(self)
     self.old_lines = await(self:fetch_old_content())
   end
 
+  -- Switch to main thread for vim API calls
+  await(async.scheduler())
+
+  -- Revalidate after scheduler
+  if not bufnr or not api.nvim_buf_is_valid(bufnr) then return end
+
   -- Get new content from buffer
   local new_lines = api.nvim_buf_get_lines(bufnr, 0, -1, false)
 
-  -- Render the unified diff
-  unified_renderer.render(bufnr, self.ns_id, self.old_lines or {}, new_lines)
+  -- Render the unified diff and get first change line
+  local first_change = unified_renderer.render(bufnr, self.ns_id, self.old_lines or {}, new_lines)
+
+  -- Scroll to first change if we have one and window is valid
+  if first_change and self.b.id and api.nvim_win_is_valid(self.b.id) then
+    api.nvim_win_set_cursor(self.b.id, { first_change, 0 })
+    api.nvim_win_call(self.b.id, function()
+      vim.cmd("normal! zz")
+    end)
+  end
 end)
 
 ---Clear unified diff rendering.

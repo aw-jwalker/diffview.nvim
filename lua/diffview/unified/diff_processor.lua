@@ -29,12 +29,12 @@ local M = {}
 ---@param new_lines string[] Lines from the new file
 ---@return unified.Hunk[]
 function M.compute_hunks(old_lines, new_lines)
+  -- Handle empty files properly
+  local old_text = #old_lines > 0 and (table.concat(old_lines, "\n") .. "\n") or ""
+  local new_text = #new_lines > 0 and (table.concat(new_lines, "\n") .. "\n") or ""
+
   -- Use vim.diff to get indices format output
-  local diff_result = vim.diff(
-    table.concat(old_lines, "\n") .. "\n",
-    table.concat(new_lines, "\n") .. "\n",
-    { result_type = "indices" }
-  )
+  local diff_result = vim.diff(old_text, new_text, { result_type = "indices" })
 
   local hunks = {}
 

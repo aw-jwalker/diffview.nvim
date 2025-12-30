@@ -18,12 +18,16 @@ local M = {}
 ---@param ns_id integer Namespace ID for extmarks
 ---@param old_lines string[] Old file content
 ---@param new_lines string[] New file content
+---@return integer? first_change_line Line number of first change (1-indexed)
 function M.render(bufnr, ns_id, old_lines, new_lines)
   -- Clear any existing unified diff rendering
   M.clear(bufnr, ns_id)
 
   -- Compute hunks
   local hunks = diff_processor.compute_hunks(old_lines, new_lines)
+
+  -- Track first change line
+  local first_change_line = nil
 
   -- Convert to render instructions
   local instructions = diff_processor.hunks_to_render_instructions(hunks)
@@ -42,8 +46,16 @@ function M.render(bufnr, ns_id, old_lines, new_lines)
         content = instr.content,
         hl_group = instr.hl_group,
       })
+      -- Track first change
+      if not first_change_line or anchor < first_change_line then
+        first_change_line = anchor
+      end
     elseif instr.type == "highlight_line" then
       M.highlight_line(bufnr, ns_id, instr.line, instr.hl_group)
+      -- Track first change
+      if not first_change_line or instr.line < first_change_line then
+        first_change_line = instr.line
+      end
     elseif instr.type == "word_diff" then
       M.apply_word_diff(bufnr, ns_id, instr.line, instr.word_diff)
     end
@@ -53,6 +65,8 @@ function M.render(bufnr, ns_id, old_lines, new_lines)
   for anchor_line, virt_lines in pairs(virtual_lines_by_anchor) do
     M.add_virtual_lines(bufnr, ns_id, anchor_line, virt_lines)
   end
+
+  return first_change_line
 end
 
 ---Clear all unified diff extmarks from a buffer.
@@ -77,11 +91,9 @@ function M.highlight_line(bufnr, ns_id, line, hl_group)
   local line_count = api.nvim_buf_line_count(bufnr)
   if line_idx >= line_count then return end
 
+  -- Use line_hl_group for whole-line highlighting
   api.nvim_buf_set_extmark(bufnr, ns_id, line_idx, 0, {
-    end_row = line_idx,
-    end_col = 0,
-    hl_group = hl_group,
-    hl_eol = true,
+    line_hl_group = hl_group,
     priority = 100,
   })
 end
