@@ -11,6 +11,13 @@ local function render_file(comp, show_path, depth)
   ---@type FileEntry
   local file = comp.context
 
+  -- Show unread indicator
+  if file.unread then
+    comp:add_text("● ", "DiffviewUnread")
+  else
+    comp:add_text("  ")
+  end
+
   comp:add_text(file.status .. " ", hl.get_git_hl(file.status))
 
   if depth then

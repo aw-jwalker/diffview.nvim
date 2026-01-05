@@ -145,9 +145,18 @@ function M.get_hl(name, no_trans)
   if hl then
     if not HAS_NVIM_0_9 then
       -- Handle renames
-      if hl.foreground then hl.fg = hl.foreground; hl.foreground = nil end
-      if hl.background then hl.bg = hl.background; hl.background = nil end
-      if hl.special then hl.sp = hl.special; hl.special = nil end
+      if hl.foreground then
+        hl.fg = hl.foreground
+        hl.foreground = nil
+      end
+      if hl.background then
+        hl.bg = hl.background
+        hl.background = nil
+      end
+      if hl.special then
+        hl.sp = hl.special
+        hl.special = nil
+      end
     end
 
     if hl.fg then hl.x_fg = string.format("#%06x", hl.fg) end
@@ -219,12 +228,9 @@ function M.get_style(groups, no_trans)
       local res = {}
 
       for _, attr in ipairs(style_attrs) do
-        if hl[attr] then table.insert(res, attr)
-        end
+        if hl[attr] then table.insert(res, attr) end
 
-        if #res > 0 then
-          return table.concat(res, ",")
-        end
+        if #res > 0 then return table.concat(res, ",") end
       end
     end
   end
@@ -263,15 +269,11 @@ function M.hi(groups, opt)
     if opt.explicit then
       def_spec = M.hi_spec_to_def_map(opt)
     else
-      def_spec = M.hi_spec_to_def_map(
-        vim.tbl_extend("force", M.get_hl(group, true) or {}, opt)
-      )
+      def_spec = M.hi_spec_to_def_map(vim.tbl_extend("force", M.get_hl(group, true) or {}, opt))
     end
 
     for k, v in pairs(def_spec) do
-      if v == "NONE" then
-        def_spec[k] = nil
-      end
+      if v == "NONE" then def_spec[k] = nil end
     end
 
     if not HAS_NVIM_0_9 and def_spec.link then
@@ -283,13 +285,9 @@ function M.hi(groups, opt)
       local link = def_spec.link
       def_spec.link = nil
 
-      if not def_spec.default then
-        api.nvim_set_hl(0, group, def_spec)
-      end
+      if not def_spec.default then api.nvim_set_hl(0, group, def_spec) end
 
-      if link ~= -1 then
-        api.nvim_set_hl(0, group, { link = link, default = def_spec.default })
-      end
+      if link ~= -1 then api.nvim_set_hl(0, group, { link = link, default = def_spec.default }) end
     else
       api.nvim_set_hl(0, group, def_spec)
     end
@@ -319,7 +317,6 @@ function M.hi_link(from, to, opt)
       end
 
       api.nvim_set_hl(0, f, { default = opt.default, link = to })
-
     else
       -- When `clear` is not set; use our `hi()` function such that other
       -- attributes are not affected.
@@ -337,9 +334,7 @@ function M.hi_clear(groups)
     return
   end
 
-  if type(groups) ~= "table" then
-    groups = { groups }
-  end
+  if type(groups) ~= "table" then groups = { groups } end
 
   for _, g in ipairs(groups) do
     api.nvim_set_hl(0, g, {})
@@ -399,9 +394,7 @@ local git_status_hl_map = {
   ["!"] = "DiffviewStatusIgnored",
 }
 
-function M.get_git_hl(status)
-  return git_status_hl_map[status]
-end
+function M.get_git_hl(status) return git_status_hl_map[status] end
 
 function M.get_colors()
   return {
@@ -465,6 +458,7 @@ M.hl_links = {
   StatusDeleted = "diffRemoved",
   StatusBroken = "diffRemoved",
   StatusIgnored = "Comment",
+  Unread = "DiagnosticInfo",
   DiffAdd = "DiffAdd",
   DiffDelete = "DiffDelete",
   DiffChange = "DiffChange",
@@ -503,3 +497,8 @@ function M.setup()
 end
 
 return M
+-- test refresh 1767629953
+-- test refresh 1767629962
+-- test refresh 1767632623
+-- test refresh 1767632640
+-- test refresh 1767632778

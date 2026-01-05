@@ -102,6 +102,16 @@ function DiffView:post_open()
     )
   end
 
+  -- Timer-based refresh for WSL2 compatibility (runs even when not active tab)
+  local refresh_interval = config.get_config().refresh_interval
+  if refresh_interval and refresh_interval > 0 then
+    self.refresh_timer = vim.loop.new_timer()
+    self.refresh_timer:start(refresh_interval, refresh_interval, vim.schedule_wrap(function()
+      -- Update file panel even when not active (remove the active tab check for this path)
+      self:update_files_background()
+    end))
+  end
+
   self:init_event_listeners()
 
   vim.schedule(function()
@@ -178,6 +188,12 @@ function DiffView:close()
       self.watcher:close()
     end
 
+    if self.refresh_timer then
+      self.refresh_timer:stop()
+      self.refresh_timer:close()
+      self.refresh_timer = nil
+    end
+
     for _, file in self.files:iter() do
       file:destroy()
     end
@@ -203,6 +219,10 @@ DiffView._set_file = async.void(function(self, file)
   await(self:use_entry(file))
 
   self.emitter:emit("file_open_post", file, cur_entry)
+
+  -- Mark file as read
+  file.last_viewed = vim.loop.now()
+  file.unread = false
 
   if not self.cur_entry.opened then
     self.cur_entry.opened = true
@@ -492,6 +512,154 @@ DiffView.update_files = debounce.debounce_trailing(
       perf.final_time
     )
     self.emitter:emit("files_updated", self.files)
+
+    callback()
+  end)
+)
+
+---Update file list in background (no active tab check, no buffer updates)
+---This only updates the file panel, not the code buffers
+DiffView.update_files_background = debounce.debounce_trailing(
+  500,
+  true,
+  ---@param self DiffView
+  ---@param callback fun(err?: string[])
+  async.wrap(function(self, callback)
+    await(async.scheduler())
+
+    ---@type PerfTimer
+    local perf = PerfTimer("[DiffView] Background Status Update")
+
+    local index_stat = pl:stat(pl:join(self.adapter.ctx.dir, "index"))
+
+    ---@type string[]?, FileDict
+    local err, new_files = await(self:get_updated_files())
+    await(async.scheduler())
+
+    if err then
+      callback(err)
+      return
+    end
+
+    perf:lap("received new file list")
+
+    local files = {
+      { cur_files = self.files.conflicting, new_files = new_files.conflicting },
+      { cur_files = self.files.working, new_files = new_files.working },
+      { cur_files = self.files.staged, new_files = new_files.staged },
+    }
+
+    for _, v in ipairs(files) do
+      ---@param aa FileEntry
+      ---@param bb FileEntry
+      local diff = Diff(v.cur_files, v.new_files, function(aa, bb)
+        return aa.path == bb.path and aa.oldpath == bb.oldpath
+      end)
+
+      local script = diff:create_edit_script()
+      local ai = 1
+      local bi = 1
+
+      for _, opr in ipairs(script) do
+        if opr == EditToken.NOOP then
+          local cur_file = v.cur_files[ai]
+          local a_stats = cur_file.stats
+          local b_stats = v.new_files[bi].stats
+
+          -- Check if stats changed (file was modified)
+          local stats_changed = false
+          if a_stats and b_stats then
+            stats_changed = (a_stats.additions ~= b_stats.additions) or
+                           (a_stats.deletions ~= b_stats.deletions)
+          elseif (a_stats and not b_stats) or (not a_stats and b_stats) then
+            stats_changed = true
+          end
+
+          if stats_changed then
+            cur_file.last_modified = vim.loop.now()
+            cur_file.unread = true
+          end
+
+          if a_stats then
+            cur_file.stats = vim.tbl_extend("force", a_stats, b_stats or {})
+          else
+            cur_file.stats = v.new_files[bi].stats
+          end
+
+          cur_file.status = v.new_files[bi].status
+          cur_file:validate_stage_buffers(index_stat)
+
+          ai = ai + 1
+          bi = bi + 1
+
+        elseif opr == EditToken.DELETE then
+          if self.panel.cur_file == v.cur_files[ai] then
+            local file_list = self.panel:ordered_file_list()
+            if file_list[1] == self.panel.cur_file then
+              self.panel:set_cur_file(nil)
+            else
+              self.panel:set_cur_file(self.panel:prev_file())
+            end
+          end
+
+          v.cur_files[ai]:destroy()
+          table.remove(v.cur_files, ai)
+
+        elseif opr == EditToken.INSERT then
+          local new_file = v.new_files[bi]
+          new_file.last_modified = vim.loop.now()
+          new_file.unread = true
+          table.insert(v.cur_files, ai, new_file)
+          ai = ai + 1
+          bi = bi + 1
+
+        elseif opr == EditToken.REPLACE then
+          if self.panel.cur_file == v.cur_files[ai] then
+            local file_list = self.panel:ordered_file_list()
+            if file_list[1] == self.panel.cur_file then
+              self.panel:set_cur_file(nil)
+            else
+              self.panel:set_cur_file(self.panel:prev_file())
+            end
+          end
+
+          local new_file = v.new_files[bi]
+          new_file.last_modified = vim.loop.now()
+          new_file.unread = true
+          v.cur_files[ai]:destroy()
+          v.cur_files[ai] = new_file
+          ai = ai + 1
+          bi = bi + 1
+        end
+      end
+    end
+
+    perf:lap("updated file list")
+
+    self.merge_ctx = next(new_files.conflicting) and self.adapter:get_merge_context() or nil
+
+    if self.merge_ctx then
+      for _, entry in ipairs(self.files.conflicting) do
+        entry:update_merge_context(self.merge_ctx)
+      end
+    end
+
+    FileEntry.update_index_stat(self.adapter, index_stat)
+    self.files:update_file_trees()
+    self.panel:update_components()
+    self.panel:render()
+    self.panel:redraw()
+    perf:lap("panel redrawn")
+    self.panel:reconstrain_cursor()
+
+    perf:time()
+    logger:lvl(5):debug(perf)
+    logger:fmt_debug(
+      "[%s] Completed background update for %d files (%.3f ms)",
+      self.class:name(),
+      self.files:len(),
+      perf.final_time
+    )
 
     callback()
   end)

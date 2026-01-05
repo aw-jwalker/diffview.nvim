@@ -1,0 +1,21 @@
+{
+  "git_hash": "e9f47bfa38049f790084d730cca285356a666a48",
+  "timestamp": "2026-01-05T09:35:54-05:00",
+  "project_type": "unknown",
+  "directory": "/home/aw-jwalker/repos/diffview.nvim",
+  "results": {
+    "typecheck": {
+      "status": "skipped",
+      "error_preview": "\n"
+    },
+    "lint": {
+      "status": "skipped",
+      "error_preview": "\n"
+    },
+    "test": {
+      "status": "skipped",
+      "summary": "\n",
+      "error_preview": ""
+    }
+  }
+}
