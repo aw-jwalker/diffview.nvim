@@ -100,17 +100,6 @@ function M.init()
     callback = function()
       local ok, view = pcall(lib.get_current_view)
 
-      -- Debug output
-      if ok and view then
-        local winid = api.nvim_get_current_win()
-        local panel_winid = view.panel and view.panel.winid or "nil"
-        local is_panel = view.panel and view.panel.winid == winid
-        local has_entry = view.cur_entry ~= nil
-        local is_unread = view.cur_entry and view.cur_entry.unread
-        print(string.format("WinEnter: winid=%s panel_winid=%s is_panel=%s ready=%s has_entry=%s is_unread=%s",
-          winid, panel_winid, tostring(is_panel), tostring(view.ready), tostring(has_entry), tostring(is_unread)))
-      end
-
       if not ok or not view or not view.ready then return end
 
       local winid = api.nvim_get_current_win()
@@ -122,7 +111,6 @@ function M.init()
 
       -- If current entry has unread changes, trigger the same logic as selecting from panel
       if view.cur_entry and view.cur_entry.unread then
-        print("Calling set_file to clear unread")
         -- Call set_file which handles checktime, re-rendering, and clearing unread
         view:set_file(view.cur_entry, false, false)
       end
