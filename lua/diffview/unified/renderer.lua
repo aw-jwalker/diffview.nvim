@@ -13,12 +13,16 @@ local api = vim.api
 
 local M = {}
 
+---@class unified.RenderResult
+---@field first_change_line integer? Line number of first change (1-indexed)
+---@field hunks unified.Hunk[] Computed hunks for navigation
+
 ---Render unified diff in a buffer.
 ---@param bufnr integer Buffer number
 ---@param ns_id integer Namespace ID for extmarks
 ---@param old_lines string[] Old file content
 ---@param new_lines string[] New file content
----@return integer? first_change_line Line number of first change (1-indexed)
+---@return unified.RenderResult
 function M.render(bufnr, ns_id, old_lines, new_lines)
   -- Clear any existing unified diff rendering
   M.clear(bufnr, ns_id)
@@ -66,7 +70,10 @@ function M.render(bufnr, ns_id, old_lines, new_lines)
     M.add_virtual_lines(bufnr, ns_id, anchor_line, virt_lines)
   end
 
-  return first_change_line
+  return {
+    first_change_line = first_change_line,
+    hunks = hunks,
+  }
 end
 
 ---Clear all unified diff extmarks from a buffer.

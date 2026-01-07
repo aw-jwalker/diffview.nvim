@@ -27,6 +27,7 @@ local UNIFIED_NS = api.nvim_create_namespace("diffview_unified")
 ---@field b Window The main window showing the "new" file
 ---@field ns_id integer Namespace for unified diff extmarks
 ---@field old_lines string[]? Cached old file content
+---@field hunks unified.Hunk[]? Cached hunks for navigation
 local DiffUnified = oop.create_class("DiffUnified", Layout)
 
 ---@alias DiffUnified.WindowSymbol "a"|"b"
@@ -47,6 +48,7 @@ function DiffUnified:init(opt)
   self:use_windows(self.b)
   self.ns_id = UNIFIED_NS  -- Use shared namespace (created at module load)
   self.old_lines = nil
+  self.hunks = nil
 end
 
 ---@override
@@ -138,12 +140,15 @@ DiffUnified.render_unified = async.void(function(self)
   -- Get new content from buffer
   local new_lines = api.nvim_buf_get_lines(bufnr, 0, -1, false)
 
-  -- Render the unified diff and get first change line
-  local first_change = unified_renderer.render(bufnr, self.ns_id, self.old_lines or {}, new_lines)
+  -- Render the unified diff and get result with hunks
+  local result = unified_renderer.render(bufnr, self.ns_id, self.old_lines or {}, new_lines)
+
+  -- Store hunks for navigation
+  self.hunks = result.hunks
 
   -- Scroll to first change if we have one and window is valid
-  if first_change and self.b.id and api.nvim_win_is_valid(self.b.id) then
-    api.nvim_win_set_cursor(self.b.id, { first_change, 0 })
+  if result.first_change_line and self.b.id and api.nvim_win_is_valid(self.b.id) then
+    api.nvim_win_set_cursor(self.b.id, { result.first_change_line, 0 })
     api.nvim_win_call(self.b.id, function()
       vim.cmd("normal! zz")
     end)
@@ -152,6 +157,7 @@ end)
 
 ---Clear unified diff rendering.
 function DiffUnified:clear_unified()
+  self.hunks = nil
   if self.b and self.b.file and self.b.file.bufnr then
     unified_renderer.clear(self.b.file.bufnr, self.ns_id)
   end
@@ -163,7 +169,7 @@ DiffUnified.use_entry = async.void(function(self, entry)
   local layout = entry.layout --[[@as DiffUnified ]]
   assert(layout:instanceof(DiffUnified))
 
-  -- Clear previous unified rendering
+  -- Clear previous unified rendering (this also clears hunks)
   self:clear_unified()
   self.old_lines = nil
 

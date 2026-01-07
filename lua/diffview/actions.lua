@@ -239,6 +239,119 @@ function M.prev_conflict()
   return M.jumpto_conflict(-1, true)
 end
 
+---@class diffview.HunkJumpResult
+---@field total integer Total number of hunks
+---@field current integer Current hunk index (1-indexed)
+---@field hunk unified.Hunk The hunk jumped to
+
+---Jump to a specific hunk in unified view by index or delta.
+---@param num integer Hunk number or delta
+---@param use_delta? boolean If true, treat num as a delta from current position
+---@return diffview.HunkJumpResult?
+function M.jumpto_hunk(num, use_delta)
+  local view = lib.get_current_view()
+
+  if not view or not view:instanceof(StandardView.__get()) then
+    return
+  end
+
+  ---@cast view StandardView
+  local layout = view.cur_layout
+
+  -- Check if this is a unified layout with hunks
+  if not layout:instanceof(DiffUnified.__get()) then
+    -- For non-unified layouts, fall back to vim's ]c/[c
+    local direction = (use_delta and num > 0) and "]c" or "[c"
+    local count = math.abs(num)
+    vim.cmd("normal! " .. count .. direction)
+    return
+  end
+
+  ---@cast layout DiffUnified
+  local hunks = layout.hunks
+
+  if not hunks or #hunks == 0 then
+    return
+  end
+
+  local main = layout:get_main_win()
+  if not main or not main.id or not api.nvim_win_is_valid(main.id) then
+    return
+  end
+
+  local cursor = api.nvim_win_get_cursor(main.id)
+  local cur_line = cursor[1]
+
+  -- Find current hunk index based on cursor position
+  local cur_idx = 0
+  for i, hunk in ipairs(hunks) do
+    -- A hunk covers from new_start to new_start + new_count - 1
+    -- For deleted hunks (new_count == 0), they appear at new_start
+    local hunk_start = hunk.new_start
+    local hunk_end = hunk.new_count > 0 and (hunk.new_start + hunk.new_count - 1) or hunk.new_start
+
+    if cur_line >= hunk_start and cur_line <= hunk_end then
+      cur_idx = i
+      break
+    elseif cur_line < hunk_start then
+      -- Cursor is before this hunk
+      cur_idx = i - 0.5 -- Between previous and this hunk
+      break
+    else
+      cur_idx = i -- Cursor is after this hunk
+    end
+  end
+
+  local next_idx
+  if not use_delta then
+    next_idx = utils.clamp(num, 1, #hunks)
+  else
+    local delta = num
+
+    -- Handle being between hunks
+    if cur_idx % 1 ~= 0 then
+      -- We're between hunks
+      if delta > 0 then
+        cur_idx = math.ceil(cur_idx)
+        delta = delta - 1
+      else
+        cur_idx = math.floor(cur_idx)
+      end
+    end
+
+    -- Wrap around
+    next_idx = ((cur_idx + delta - 1) % #hunks) + 1
+  end
+
+  local next_hunk = hunks[next_idx]
+
+  -- Jump to the hunk
+  api.nvim_win_set_cursor(main.id, { next_hunk.new_start, 0 })
+  api.nvim_win_call(main.id, function()
+    vim.cmd("normal! zz")
+  end)
+
+  api.nvim_echo({{ ("Hunk [%d/%d]"):format(next_idx, #hunks) }}, false, {})
+
+  return {
+    total = #hunks,
+    current = next_idx,
+    hunk = next_hunk,
+  }
+end
+
+---Jump to the next hunk (works in unified view and falls back to ]c in diff mode).
+---@return diffview.HunkJumpResult?
+function M.next_hunk()
+  return M.jumpto_hunk(1, true)
+end
+
+---Jump to the previous hunk (works in unified view and falls back to [c in diff mode).
+---@return diffview.HunkJumpResult?
+function M.prev_hunk()
+  return M.jumpto_hunk(-1, true)
+end
+
 ---Execute `cmd` for each target window in the current view. If no targets
 ---are given, all windows are targeted.
 ---@param cmd string|function The vim cmd to execute, or a function.
