@@ -497,8 +497,3 @@ function M.setup()
 end
 
 return M
--- test refresh 1767629953
--- test refresh 1767629962
--- test refresh 1767632623
--- test refresh 1767632640
--- test refresh 1767632778

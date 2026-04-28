@@ -170,7 +170,7 @@ Window.open_file = async.void(function(self)
     disable_diagnostics = conf.view.default.disable_diagnostics
   end
 
-  self.file:attach_buffer(false, {
+  self.file:attach_buffer(self.parent and self.parent.name == "diff_unified", {
     keymaps = config.get_layout_keymaps(self.parent),
     disable_diagnostics = disable_diagnostics,
   })

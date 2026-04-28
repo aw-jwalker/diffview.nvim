@@ -431,11 +431,53 @@ hg_cmd                                          *diffview-config-hg_cmd*
         If your Mercurial install bundles the `chg` binary, this can be
         configured here to have a significant performance boost.
 
+watch_files                                    *diffview-config-watch_files*
+        Type: `table`, Default: (see defaults)
+
+        Configure native filesystem watching for open Git diff views. This is
+        intended for macOS and normal Linux environments where changes may be
+        made outside Neovim by other tools. Unsupported watcher environments
+        fail quietly and fall back to manual refresh, `watch_index`,
+        `TabEnter`, and `BufWritePost`.
+
+        Fields: ~
+            {enabled} (boolean)
+                Start a native watcher for each open diff view.
+
+            {debounce} (integer)
+                Milliseconds used to coalesce filesystem events before
+                refreshing the file panel.
+
+            {update_on_focus} (boolean)
+                Refresh the file panel on |FocusGained|.
+
+            {ignore_gitignored} (boolean)
+                For non-`.git/` paths, skip refreshes for paths matched by
+                `git check-ignore`.
+
+unread                                         *diffview-config-unread*
+        Type: `table`, Default: (see defaults)
+
+        Configure unread file panel markers. Entries are marked unread when a
+        panel refresh detects meaningful status/stat changes or new/replaced
+        entries. Opening the entry clears the marker.
+
+        Fields: ~
+            {enabled} (boolean)
+                Enable unread state and marker rendering.
+
+            {icon} (string)
+                Marker text displayed before unread file entries.
+
+            {hl_group} (string)
+                Highlight group used for the marker text.
+
 view.x.layout                                   *diffview-config-view.x.layout*
         Type: >
             "diff1_plain"
                 | "diff2_horizontal"
                 | "diff2_vertical"
+                | "diff_unified"
                 | "diff3_horizontal"
                 | "diff3_vertical"
                 | "diff3_mixed"
@@ -501,6 +543,20 @@ view.x.layout                                   *diffview-config-view.x.layout*
                 │      A       │
                 │              │
                 ├──────────────┤
+                │      B       │
+                │              │
+                └──────────────┘
+
+            {diff_unified}
+                Available for: diff_view, file_history_view
+
+                A single-window unified diff layout. Deleted lines are shown
+                as virtual lines and added lines are highlighted in the file
+                buffer. The default `[c` and `]c` mappings jump between
+                unified hunks in this layout.
+
+                ┌──────────────┐
+                │              │
                 │      B       │
                 │              │
                 └──────────────┘

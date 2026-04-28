@@ -10,6 +10,17 @@ DEFAULT CONFIG                                  *diffview.defaults*
     use_icons = true,         -- Requires nvim-web-devicons
     show_help_hints = true,   -- Show hints for how to open the help panel
     watch_index = true,       -- Update views and index buffers when the git index changes.
+    watch_files = {
+      enabled = true,         -- Update diff file panels when files change outside Neovim.
+      debounce = 150,         -- Debounce filesystem events in milliseconds.
+      update_on_focus = true, -- Refresh the file panel on FocusGained.
+      ignore_gitignored = true, -- Ignore changed paths matched by git check-ignore.
+    },
+    unread = {
+      enabled = true,         -- Mark entries changed since they were last opened.
+      icon = "*",             -- File panel marker text.
+      hl_group = "DiffviewUnread",
+    },
     icons = {                 -- Only applies when use_icons is true.
       folder_closed = "",
       folder_open = "",
@@ -25,6 +36,7 @@ DEFAULT CONFIG                                  *diffview.defaults*
       --  'diff1_plain'
       --    |'diff2_horizontal'
       --    |'diff2_vertical'
+      --    |'diff_unified'
       --    |'diff3_horizontal'
       --    |'diff3_vertical'
       --    |'diff3_mixed'
@@ -175,6 +187,8 @@ DEFAULT CONFIG                                  *diffview.defaults*
         { "n", "<leader>e",      actions.focus_files,                    { desc = "Bring focus to the file panel" } },
         { "n", "<leader>b",      actions.toggle_files,                   { desc = "Toggle the file panel" } },
         { "n", "g<C-x>",         actions.cycle_layout,                   { desc = "Cycle available layouts" } },
+        { "n", "[c",             actions.prev_hunk,                      { desc = "Jump to the previous hunk" } },
+        { "n", "]c",             actions.next_hunk,                      { desc = "Jump to the next hunk" } },
         { "n", "[x",             actions.prev_conflict,                  { desc = "Go to the previous conflict" } },
         { "n", "]x",             actions.next_conflict,                  { desc = "Go to the next conflict" } },
         { "n", "g?",             actions.help("file_panel"),             { desc = "Open the help panel" } },
@@ -216,6 +230,8 @@ DEFAULT CONFIG                                  *diffview.defaults*
         { "n", "<leader>e",     actions.focus_files,                 { desc = "Bring focus to the file panel" } },
         { "n", "<leader>b",     actions.toggle_files,                { desc = "Toggle the file panel" } },
         { "n", "g<C-x>",        actions.cycle_layout,                { desc = "Cycle available layouts" } },
+        { "n", "[c",            actions.prev_hunk,                   { desc = "Jump to the previous hunk" } },
+        { "n", "]c",            actions.next_hunk,                   { desc = "Jump to the next hunk" } },
         { "n", "g?",            actions.help("file_history_panel"),  { desc = "Open the help panel" } },
       },
       option_panel = {

@@ -45,7 +45,17 @@ M.defaults = {
   use_icons = true,
   show_help_hints = true,
   watch_index = true,
-  refresh_interval = 2000, -- ms, set to 0 to disable timer-based refresh
+  watch_files = {
+    enabled = true,
+    debounce = 150,
+    update_on_focus = true,
+    ignore_gitignored = true,
+  },
+  unread = {
+    enabled = true,
+    icon = "*",
+    hl_group = "DiffviewUnread",
+  },
   icons = {
     folder_closed = "",
     folder_open = "",
@@ -207,6 +217,8 @@ M.defaults = {
       { "n", "<leader>e",      actions.focus_files,                    { desc = "Bring focus to the file panel" } },
       { "n", "<leader>b",      actions.toggle_files,                   { desc = "Toggle the file panel" } },
       { "n", "g<C-x>",         actions.cycle_layout,                   { desc = "Cycle available layouts" } },
+      { "n", "[c",             actions.prev_hunk,                      { desc = "Jump to the previous hunk" } },
+      { "n", "]c",             actions.next_hunk,                      { desc = "Jump to the next hunk" } },
       { "n", "[x",             actions.prev_conflict,                  { desc = "Go to the previous conflict" } },
       { "n", "]x",             actions.next_conflict,                  { desc = "Go to the next conflict" } },
       { "n", "g?",             actions.help("file_panel"),             { desc = "Open the help panel" } },
@@ -248,6 +260,8 @@ M.defaults = {
       { "n", "<leader>e",     actions.focus_files,                 { desc = "Bring focus to the file panel" } },
       { "n", "<leader>b",     actions.toggle_files,                { desc = "Toggle the file panel" } },
       { "n", "g<C-x>",        actions.cycle_layout,                { desc = "Cycle available layouts" } },
+      { "n", "[c",            actions.prev_hunk,                   { desc = "Jump to the previous hunk" } },
+      { "n", "]c",            actions.next_hunk,                   { desc = "Jump to the next hunk" } },
       { "n", "g?",            actions.help("file_history_panel"),  { desc = "Open the help panel" } },
     },
     option_panel = {

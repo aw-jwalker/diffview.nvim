@@ -93,30 +93,6 @@ function M.init()
     end,
   })
 
-  -- Refresh code buffer when entering a diffview window (not the file panel)
-  au("WinEnter", {
-    group = M.augroup,
-    pattern = "*",
-    callback = function()
-      local ok, view = pcall(lib.get_current_view)
-
-      if not ok or not view or not view.ready then return end
-
-      local winid = api.nvim_get_current_win()
-
-      -- Skip if entering the file panel
-      if view.panel and view.panel.winid == winid then
-        return
-      end
-
-      -- If current entry has unread changes, trigger the same logic as selecting from panel
-      if view.cur_entry and view.cur_entry.unread then
-        -- Call set_file which handles checktime, re-rendering, and clearing unread
-        view:set_file(view.cur_entry, false, false)
-      end
-    end,
-  })
-
   -- Set up user autocommand emitters
   DiffviewGlobal.emitter:on("view_opened", function(_)
     api.nvim_exec_autocmds("User", { pattern = "DiffviewViewOpened", modeline = false })

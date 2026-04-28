@@ -1,7 +1,7 @@
 # Diffview.nvim
 
-Single tabpage interface for easily cycling through diffs for all modified files
-for any git rev.
+Self-contained fork of diffview.nvim focused on unified diffs and live file
+panel refresh for macOS and Linux.
 
 ![preview](https://user-images.githubusercontent.com/2786478/131269942-e34100dd-cbb9-48fe-af31-6e518ce06e9e.png)
 
@@ -9,9 +9,15 @@ for any git rev.
 ## Introduction
 
 Vim's diff mode is pretty good, but there is no convenient way to quickly bring
-up all modified files in a diffsplit. This plugin aims to provide a simple,
-unified, single tabpage interface that lets you easily review all changed files
-for any git rev.
+up all modified files in a diffsplit. This plugin provides a single tabpage
+interface for reviewing changed files for any git rev.
+
+This fork adds a `diff_unified` layout, unified hunk navigation through the
+normal `[c` and `]c` mappings, native file watching for external edits, and
+unread file panel markers for files that changed since they were last opened.
+The watcher path is designed for macOS and normal Linux environments. It does
+not use WSL timer polling; unsupported watcher environments fall back to the
+standard manual refresh paths.
 
 ## Requirements
 
@@ -22,16 +28,57 @@ for any git rev.
 
 ## Installation
 
-Install the plugin with your package manager of choice.
+Install the plugin with your package manager of choice. Replace
+`your-org/diffview.nvim` with the published repository for this fork.
 
-```vim
-" Plug
-Plug 'sindrets/diffview.nvim'
+```lua
+-- lazy.nvim
+{
+  "your-org/diffview.nvim",
+  opts = {
+    view = {
+      default = { layout = "diff_unified" },
+      file_history = { layout = "diff_unified" },
+    },
+  },
+}
 ```
 
 ```lua
 -- Packer
-use "sindrets/diffview.nvim" 
+use {
+  "your-org/diffview.nvim",
+  config = function()
+    require("diffview").setup({
+      view = {
+        default = { layout = "diff_unified" },
+        file_history = { layout = "diff_unified" },
+      },
+    })
+  end,
+}
+```
+
+```vim
+" vim-plug
+Plug 'your-org/diffview.nvim'
+```
+
+For local development, clone this repository and point your plugin manager at
+the checkout:
+
+```lua
+{
+  dir = "~/repos/diffview.nvim",
+  dev = true,
+  opts = {
+    view = {
+      default = { layout = "diff_unified" },
+      merge_tool = { layout = "diff4_mixed" },
+      file_history = { layout = "diff_unified" },
+    },
+  },
+}
 ```
 
 ## Merge Tool
@@ -113,6 +160,8 @@ Additional commands for convenience:
 
 With a Diffview open and the default key bindings, you can cycle through changed
 files with `<tab>` and `<s-tab>` (see configuration to change the key bindings).
+In the unified layout, `[c` and `]c` jump between unified hunks in the current
+file.
 
 #### Staging
 
@@ -189,6 +238,17 @@ require("diffview").setup({
   use_icons = true,         -- Requires nvim-web-devicons
   show_help_hints = true,   -- Show hints for how to open the help panel
   watch_index = true,       -- Update views and index buffers when the git index changes.
+  watch_files = {
+    enabled = true,         -- Update diff file panels when files change outside Neovim.
+    debounce = 150,         -- Debounce filesystem events in milliseconds.
+    update_on_focus = true, -- Refresh the file panel on FocusGained.
+    ignore_gitignored = true, -- Ignore changed paths matched by git check-ignore.
+  },
+  unread = {
+    enabled = true,         -- Mark entries changed since they were last opened.
+    icon = "*",             -- File panel marker text.
+    hl_group = "DiffviewUnread",
+  },
   icons = {                 -- Only applies when use_icons is true.
     folder_closed = "",
     folder_open = "",
@@ -204,6 +264,7 @@ require("diffview").setup({
     --  'diff1_plain'
     --    |'diff2_horizontal'
     --    |'diff2_vertical'
+    --    |'diff_unified'
     --    |'diff3_horizontal'
     --    |'diff3_vertical'
     --    |'diff3_mixed'
@@ -354,6 +415,8 @@ require("diffview").setup({
       { "n", "<leader>e",      actions.focus_files,                    { desc = "Bring focus to the file panel" } },
       { "n", "<leader>b",      actions.toggle_files,                   { desc = "Toggle the file panel" } },
       { "n", "g<C-x>",         actions.cycle_layout,                   { desc = "Cycle available layouts" } },
+      { "n", "[c",             actions.prev_hunk,                      { desc = "Jump to the previous hunk" } },
+      { "n", "]c",             actions.next_hunk,                      { desc = "Jump to the next hunk" } },
       { "n", "[x",             actions.prev_conflict,                  { desc = "Go to the previous conflict" } },
       { "n", "]x",             actions.next_conflict,                  { desc = "Go to the next conflict" } },
       { "n", "g?",             actions.help("file_panel"),             { desc = "Open the help panel" } },
@@ -395,6 +458,8 @@ require("diffview").setup({
       { "n", "<leader>e",     actions.focus_files,                 { desc = "Bring focus to the file panel" } },
       { "n", "<leader>b",     actions.toggle_files,                { desc = "Toggle the file panel" } },
       { "n", "g<C-x>",        actions.cycle_layout,                { desc = "Cycle available layouts" } },
+      { "n", "[c",            actions.prev_hunk,                   { desc = "Jump to the previous hunk" } },
+      { "n", "]c",            actions.next_hunk,                   { desc = "Jump to the next hunk" } },
       { "n", "g?",            actions.help("file_history_panel"),  { desc = "Open the help panel" } },
     },
     option_panel = {

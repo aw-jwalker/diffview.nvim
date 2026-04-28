@@ -45,6 +45,20 @@ From the file panel you can press `L` to open the commit log for all the
 changes. This lets you check the full commit messages for all the commits
 involved.
 
+If you prefer a single-window review surface, configure `diff_unified` for the
+default and file-history layouts:
+
+```lua
+require("diffview").setup({
+  view = {
+    default = { layout = "diff_unified" },
+    file_history = { layout = "diff_unified" },
+  },
+})
+```
+
+In this layout `[c` and `]c` jump between unified hunks.
+
 ![diffview symdiff demo](https://user-images.githubusercontent.com/2786478/229858634-c751ebe3-cc43-48de-adda-bf0b71fa2ce7.png)
 
 > NOTE: If Git complains `fatal: Not a valid object name origin/HEAD` then it
@@ -57,6 +71,33 @@ involved.
 > ```
 
 [^1]: The files as they currently exist on disk.
+
+## Watching External Edits
+
+This fork can keep the file panel current while another process edits files in
+the working tree. Native file watching is enabled by default on supported
+macOS and Linux environments:
+
+```lua
+require("diffview").setup({
+  watch_files = {
+    enabled = true,
+    debounce = 150,
+    update_on_focus = true,
+    ignore_gitignored = true,
+  },
+  unread = {
+    enabled = true,
+    icon = "*",
+    hl_group = "DiffviewUnread",
+  },
+})
+```
+
+Changed entries are marked unread until opened. Gitignored file changes are
+ignored when `ignore_gitignored` is enabled, while `.git/` changes still refresh
+the panel. Unsupported watcher environments degrade to manual refresh and the
+standard index/write/tab refresh paths.
 
 ### Comparing Changes From the Individual PR Commits
 

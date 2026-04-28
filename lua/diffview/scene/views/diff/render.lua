@@ -11,9 +11,10 @@ local function render_file(comp, show_path, depth)
   ---@type FileEntry
   local file = comp.context
 
-  -- Show unread indicator
-  if file.unread then
-    comp:add_text("● ", "DiffviewUnread")
+  local conf = config.get_config()
+
+  if conf.unread.enabled and file.unread then
+    comp:add_text((conf.unread.icon or "*") .. " ", conf.unread.hl_group or "DiffviewUnread")
   else
     comp:add_text("  ")
   end

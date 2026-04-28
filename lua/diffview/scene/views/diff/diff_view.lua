@@ -9,6 +9,7 @@ local EventName = lazy.access("diffview.events", "EventName") ---@type EventName
 local FileDict = lazy.access("diffview.vcs.file_dict", "FileDict") ---@type FileDict|LazyModule
 local FileEntry = lazy.access("diffview.scene.file_entry", "FileEntry") ---@type FileEntry|LazyModule
 local FilePanel = lazy.access("diffview.scene.views.diff.file_panel", "FilePanel") ---@type FilePanel|LazyModule
+local file_watcher = lazy.require("diffview.file_watcher") ---@module "diffview.file_watcher"
 local PerfTimer = lazy.access("diffview.perf", "PerfTimer") ---@type PerfTimer|LazyModule
 local RevType = lazy.access("diffview.vcs.rev", "RevType") ---@type RevType|LazyModule
 local StandardView = lazy.access("diffview.scene.views.standard.standard_view", "StandardView") ---@type StandardView|LazyModule
@@ -45,7 +46,8 @@ local M = {}
 ---@field merge_ctx? vcs.MergeContext
 ---@field initialized boolean
 ---@field valid boolean
----@field watcher uv_fs_poll_t # UV fs poll handle.
+---@field index_watcher uv_fs_poll_t # UV fs poll handle.
+---@field file_watcher diffview.FileWatcher?
 local DiffView = oop.create_class("DiffView", StandardView.__get())
 
 ---DiffView constructor
@@ -87,8 +89,8 @@ function DiffView:post_open()
   })
 
   if config.get_config().watch_index and self.adapter:instanceof(GitAdapter.__get()) then
-    self.watcher = vim.loop.new_fs_poll()
-    self.watcher:start(
+    self.index_watcher = vim.loop.new_fs_poll()
+    self.index_watcher:start(
       self.adapter.ctx.dir .. "/index",
       1000,
       ---@diagnostic disable-next-line: unused-local
@@ -102,14 +104,9 @@ function DiffView:post_open()
     )
   end
 
-  -- Timer-based refresh for WSL2 compatibility (runs even when not active tab)
-  local refresh_interval = config.get_config().refresh_interval
-  if refresh_interval and refresh_interval > 0 then
-    self.refresh_timer = vim.loop.new_timer()
-    self.refresh_timer:start(refresh_interval, refresh_interval, vim.schedule_wrap(function()
-      -- Update file panel even when not active (remove the active tab check for this path)
-      self:update_files_background()
-    end))
+  local watch_files = config.get_config().watch_files
+  if watch_files.enabled and self.adapter:instanceof(GitAdapter.__get()) then
+    self.file_watcher = file_watcher.watch(self, watch_files)
   end
 
   self:init_event_listeners()
@@ -183,15 +180,15 @@ function DiffView:close()
   if not self.closing:check() then
     self.closing:send()
 
-    if self.watcher then
-      self.watcher:stop()
-      self.watcher:close()
+    if self.index_watcher then
+      self.index_watcher:stop()
+      self.index_watcher:close()
+      self.index_watcher = nil
     end
 
-    if self.refresh_timer then
-      self.refresh_timer:stop()
-      self.refresh_timer:close()
-      self.refresh_timer = nil
+    if self.file_watcher then
+      self.file_watcher:close()
+      self.file_watcher = nil
     end
 
     for _, file in self.files:iter() do
@@ -220,8 +217,6 @@ DiffView._set_file = async.void(function(self, file)
 
   self.emitter:emit("file_open_post", file, cur_entry)
 
-  -- Mark file as read
-  file.last_viewed = vim.loop.now()
   file.unread = false
 
   if not self.cur_entry.opened then
@@ -339,17 +334,15 @@ DiffView.get_updated_files = async.wrap(function(self, callback)
 end)
 
 ---Update the file list, including stats and status for all files.
-DiffView.update_files = debounce.debounce_trailing(
-  100,
-  true,
-  ---@param self DiffView
-  ---@param callback fun(err?: string[])
-  async.wrap(function(self, callback)
+local function update_file_list(self, opt, callback)
+  opt = opt or {}
+
+  return async.wrap(function(_, inner_callback)
     await(async.scheduler())
 
     -- Never update unless the view is in focus
     if self.tabpage ~= api.nvim_get_current_tabpage() then
-      callback({ "The update was cancelled." })
+      inner_callback({ "The update was cancelled." })
       return
     end
 
@@ -378,13 +371,13 @@ DiffView.update_files = debounce.debounce_trailing(
     if err then
       utils.err("Failed to update files in a diff view!", true)
       logger:error("[DiffView] Failed to update files!")
-      callback(err)
+      inner_callback(err)
       return
     end
 
     -- Stop the update if the view is no longer in focus.
     if self.tabpage ~= api.nvim_get_current_tabpage() then
-      callback({ "The update was cancelled." })
+      inner_callback({ "The update was cancelled." })
       return
     end
 
@@ -414,20 +407,34 @@ DiffView.update_files = debounce.debounce_trailing(
       for _, opr in ipairs(script) do
         if opr == EditToken.NOOP then
           -- Update status and stats
-          local a_stats = v.cur_files[ai].stats
+          local cur_file = v.cur_files[ai]
+          local a_stats = cur_file.stats
           local b_stats = v.new_files[bi].stats
+          local stats_changed = false
 
-          if a_stats then
-            v.cur_files[ai].stats = vim.tbl_extend("force", a_stats, b_stats or {})
-          else
-            v.cur_files[ai].stats = v.new_files[bi].stats
+          if a_stats and b_stats then
+            stats_changed = a_stats.additions ~= b_stats.additions
+              or a_stats.deletions ~= b_stats.deletions
+              or a_stats.conflicts ~= b_stats.conflicts
+          elseif (a_stats and not b_stats) or (not a_stats and b_stats) then
+            stats_changed = true
           end
 
-          v.cur_files[ai].status = v.new_files[bi].status
-          v.cur_files[ai]:validate_stage_buffers(index_stat)
+          if config.get_config().unread.enabled and stats_changed then
+            cur_file.unread = true
+          end
+
+          if a_stats then
+            cur_file.stats = vim.tbl_extend("force", a_stats, b_stats or {})
+          else
+            cur_file.stats = v.new_files[bi].stats
+          end
+
+          cur_file.status = v.new_files[bi].status
+          cur_file:validate_stage_buffers(index_stat)
 
           if new_head then
-            v.cur_files[ai]:update_heads(new_head)
+            cur_file:update_heads(new_head)
           end
 
           ai = ai + 1
@@ -447,7 +454,9 @@ DiffView.update_files = debounce.debounce_trailing(
           table.remove(v.cur_files, ai)
 
         elseif opr == EditToken.INSERT then
-          table.insert(v.cur_files, ai, v.new_files[bi])
+          local new_file = v.new_files[bi]
+          new_file.unread = config.get_config().unread.enabled
+          table.insert(v.cur_files, ai, new_file)
           ai = ai + 1
           bi = bi + 1
 
@@ -461,8 +470,10 @@ DiffView.update_files = debounce.debounce_trailing(
             end
           end
 
+          local new_file = v.new_files[bi]
+          new_file.unread = config.get_config().unread.enabled
           v.cur_files[ai]:destroy()
-          v.cur_files[ai] = v.new_files[bi]
+          v.cur_files[ai] = new_file
           ai = ai + 1
           bi = bi + 1
         end
@@ -491,16 +502,18 @@ DiffView.update_files = debounce.debounce_trailing(
       self.panel:set_cur_file(nil)
     end
 
-    -- Set initially selected file
-    if not self.initialized and self.options.selected_file then
-      for _, file in self.files:iter() do
-        if file.path == self.options.selected_file then
-          self.panel:set_cur_file(file)
-          break
+    if not opt.panel_only then
+      -- Set initially selected file
+      if not self.initialized and self.options.selected_file then
+        for _, file in self.files:iter() do
+          if file.path == self.options.selected_file then
+            self.panel:set_cur_file(file)
+            break
+          end
         end
       end
+      self:set_file(self.panel.cur_file or self.panel:next_file(), false, not self.initialized)
     end
-    self:set_file(self.panel.cur_file or self.panel:next_file(), false, not self.initialized)
 
     self.update_needed = false
     perf:time()
@@ -513,156 +526,30 @@ DiffView.update_files = debounce.debounce_trailing(
     )
     self.emitter:emit("files_updated", self.files)
 
-    callback()
-  end)
-)
+    inner_callback()
+  end)(self, callback)
+end
 
----Update file list in background (no active tab check, no buffer updates)
----This only updates the file panel, not the code buffers
-DiffView.update_files_background = debounce.debounce_trailing(
-  500,
+---Update the file list, including stats and status for all files.
+DiffView.update_files = debounce.debounce_trailing(
+  100,
   true,
   ---@param self DiffView
   ---@param callback fun(err?: string[])
-  async.wrap(function(self, callback)
-    await(async.scheduler())
+  function(self, callback)
+    update_file_list(self, nil, callback)
+  end
+)
 
-    ---@type PerfTimer
-    local perf = PerfTimer("[DiffView] Background Status Update")
-
-    local index_stat = pl:stat(pl:join(self.adapter.ctx.dir, "index"))
-
-    ---@type string[]?, FileDict
-    local err, new_files = await(self:get_updated_files())
-    await(async.scheduler())
-
-    if err then
-      callback(err)
-      return
-    end
-
-    perf:lap("received new file list")
-
-    local files = {
-      { cur_files = self.files.conflicting, new_files = new_files.conflicting },
-      { cur_files = self.files.working, new_files = new_files.working },
-      { cur_files = self.files.staged, new_files = new_files.staged },
-    }
-
-    for _, v in ipairs(files) do
-      ---@param aa FileEntry
-      ---@param bb FileEntry
-      local diff = Diff(v.cur_files, v.new_files, function(aa, bb)
-        return aa.path == bb.path and aa.oldpath == bb.oldpath
-      end)
-
-      local script = diff:create_edit_script()
-      local ai = 1
-      local bi = 1
-
-      for _, opr in ipairs(script) do
-        if opr == EditToken.NOOP then
-          local cur_file = v.cur_files[ai]
-          local a_stats = cur_file.stats
-          local b_stats = v.new_files[bi].stats
-
-          -- Check if stats changed (file was modified)
-          local stats_changed = false
-          if a_stats and b_stats then
-            stats_changed = (a_stats.additions ~= b_stats.additions) or
-                           (a_stats.deletions ~= b_stats.deletions)
-          elseif (a_stats and not b_stats) or (not a_stats and b_stats) then
-            stats_changed = true
-          end
-
-          if stats_changed then
-            cur_file.last_modified = vim.loop.now()
-            cur_file.unread = true
-          end
-
-          if a_stats then
-            cur_file.stats = vim.tbl_extend("force", a_stats, b_stats or {})
-          else
-            cur_file.stats = v.new_files[bi].stats
-          end
-
-          cur_file.status = v.new_files[bi].status
-          cur_file:validate_stage_buffers(index_stat)
-
-          ai = ai + 1
-          bi = bi + 1
-
-        elseif opr == EditToken.DELETE then
-          if self.panel.cur_file == v.cur_files[ai] then
-            local file_list = self.panel:ordered_file_list()
-            if file_list[1] == self.panel.cur_file then
-              self.panel:set_cur_file(nil)
-            else
-              self.panel:set_cur_file(self.panel:prev_file())
-            end
-          end
-
-          v.cur_files[ai]:destroy()
-          table.remove(v.cur_files, ai)
-
-        elseif opr == EditToken.INSERT then
-          local new_file = v.new_files[bi]
-          new_file.last_modified = vim.loop.now()
-          new_file.unread = true
-          table.insert(v.cur_files, ai, new_file)
-          ai = ai + 1
-          bi = bi + 1
-
-        elseif opr == EditToken.REPLACE then
-          if self.panel.cur_file == v.cur_files[ai] then
-            local file_list = self.panel:ordered_file_list()
-            if file_list[1] == self.panel.cur_file then
-              self.panel:set_cur_file(nil)
-            else
-              self.panel:set_cur_file(self.panel:prev_file())
-            end
-          end
-
-          local new_file = v.new_files[bi]
-          new_file.last_modified = vim.loop.now()
-          new_file.unread = true
-          v.cur_files[ai]:destroy()
-          v.cur_files[ai] = new_file
-          ai = ai + 1
-          bi = bi + 1
-        end
-      end
-    end
-
-    perf:lap("updated file list")
-
-    self.merge_ctx = next(new_files.conflicting) and self.adapter:get_merge_context() or nil
-
-    if self.merge_ctx then
-      for _, entry in ipairs(self.files.conflicting) do
-        entry:update_merge_context(self.merge_ctx)
-      end
-    end
-
-    FileEntry.update_index_stat(self.adapter, index_stat)
-    self.files:update_file_trees()
-    self.panel:update_components()
-    self.panel:render()
-    self.panel:redraw()
-    perf:lap("panel redrawn")
-    self.panel:reconstrain_cursor()
-
-    perf:time()
-    logger:lvl(5):debug(perf)
-    logger:fmt_debug(
-      "[%s] Completed background update for %d files (%.3f ms)",
-      self.class:name(),
-      self.files:len(),
-      perf.final_time
-    )
-
-    callback()
-  end)
+---Update only the file list and file panel. The selected diff buffers are not reopened.
+DiffView.update_file_panel = debounce.debounce_trailing(
+  250,
+  true,
+  ---@param self DiffView
+  ---@param callback fun(err?: string[])
+  function(self, callback)
+    update_file_list(self, { panel_only = true }, callback)
+  end
 )
 
 ---Ensures there are files to load, and loads the null buffer otherwise.

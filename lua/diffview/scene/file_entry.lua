@@ -42,8 +42,6 @@ local fstat_cache = {}
 ---@field merge_ctx vcs.MergeContext?
 ---@field active boolean
 ---@field opened boolean
----@field last_viewed number? Timestamp when user last viewed this file
----@field last_modified number? Timestamp of last detected modification
 ---@field unread boolean Whether file has unread changes
 local FileEntry = oop.create_class("FileEntry")
 
@@ -79,8 +77,6 @@ function FileEntry:init(opt)
   self.active = false
   self.opened = false
   self.unread = false
-  self.last_viewed = nil
-  self.last_modified = nil
 end
 
 function FileEntry:destroy()
