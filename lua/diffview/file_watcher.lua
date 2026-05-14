@@ -16,6 +16,7 @@ local M = {}
 ---@field pending { path: string?, is_git_event: boolean }[]
 ---@field refresh ManagedFn?
 ---@field focus_autocmd integer?
+---@field closed boolean
 local FileWatcher = {}
 FileWatcher.__index = FileWatcher
 
@@ -105,24 +106,35 @@ function FileWatcher.new(view, opt)
     opt = opt,
     handles = {},
     pending = {},
+    closed = false,
   }, FileWatcher)
 
   self.refresh = debounce.debounce_trailing(opt.debounce or 150, false, function()
     local pending = self.pending
     self.pending = {}
 
-    for _, event in ipairs(pending) do
-      if should_refresh(self.view, self.opt, event) then
-        self.view:update_file_panel()
+    vim.schedule(function()
+      if self.closed then
         return
       end
-    end
+
+      for _, event in ipairs(pending) do
+        if should_refresh(self.view, self.opt, event) then
+          self.view:update_file_panel()
+          return
+        end
+      end
+    end)
   end)
 
   return self
 end
 
 function FileWatcher:queue(path, is_git_event)
+  if self.closed then
+    return
+  end
+
   self.pending[#self.pending + 1] = {
     path = path,
     is_git_event = is_git_event,
@@ -195,6 +207,8 @@ function FileWatcher:start()
 end
 
 function FileWatcher:close()
+  self.closed = true
+
   if self.refresh then
     self.refresh:close()
     self.refresh = nil
