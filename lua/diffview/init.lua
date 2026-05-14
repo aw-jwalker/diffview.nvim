@@ -19,6 +19,7 @@ local M = {}
 
 function M.setup(user_config)
   config.setup(user_config or {})
+  hl.setup()
 end
 
 function M.init()

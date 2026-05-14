@@ -472,6 +472,36 @@ unread                                         *diffview-config-unread*
             {hl_group} (string)
                 Highlight group used for the marker text.
 
+unified_diff                                  *diffview-config-unified_diff*
+        Type: `table`, Default: (see defaults)
+
+        Configure unified diff layout rendering.
+
+        Fields: ~
+            {highlights} (table)
+                Override the highlight groups used by the unified layout.
+                Each value may be either a highlight spec table accepted by
+                |nvim_set_hl()| or a string naming another highlight group to
+                link to.
+
+                Supported keys:
+                  • `add` for added lines.
+                  • `delete` for deleted virtual lines.
+                  • `word_add` for changed words inside added lines.
+                  • `word_delete` for changed words inside deleted lines.
+
+                Example: >lua
+                  require("diffview").setup({
+                    unified_diff = {
+                      highlights = {
+                        add = { bg = "#16351f" },
+                        delete = { bg = "#3b1d1d" },
+                        word_add = { bg = "#2b6b3f", style = "bold" },
+                        word_delete = { bg = "#7a2f2f", style = "bold,strikethrough" },
+                      },
+                    },
+                  })
+<
 view.x.layout                                   *diffview-config-view.x.layout*
         Type: >
             "diff1_plain"

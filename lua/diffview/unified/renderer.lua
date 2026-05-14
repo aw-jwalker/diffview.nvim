@@ -55,7 +55,7 @@ function M.render(bufnr, ns_id, old_lines, new_lines)
         first_change_line = anchor
       end
     elseif instr.type == "highlight_line" then
-      M.highlight_line(bufnr, ns_id, instr.line, instr.hl_group)
+      M.highlight_line(bufnr, ns_id, instr.line, instr.hl_group, instr.marker, instr.marker_hl_group)
       -- Track first change
       if not first_change_line or instr.line < first_change_line then
         first_change_line = instr.line
@@ -90,7 +90,9 @@ end
 ---@param ns_id integer Namespace ID
 ---@param line integer Line number (1-indexed)
 ---@param hl_group string Highlight group name
-function M.highlight_line(bufnr, ns_id, line, hl_group)
+---@param marker? string Inline marker text
+---@param marker_hl_group? string Highlight group for the inline marker
+function M.highlight_line(bufnr, ns_id, line, hl_group, marker, marker_hl_group)
   local line_idx = line - 1 -- Convert to 0-indexed
 
   if line_idx < 0 then return end
@@ -98,9 +100,13 @@ function M.highlight_line(bufnr, ns_id, line, hl_group)
   local line_count = api.nvim_buf_line_count(bufnr)
   if line_idx >= line_count then return end
 
-  -- Use line_hl_group for whole-line highlighting
+  -- Use line_hl_group for whole-line highlighting. The virtual text marker is
+  -- inserted inline so added and modified buffer lines match deleted virtual
+  -- lines without changing the buffer text.
   api.nvim_buf_set_extmark(bufnr, ns_id, line_idx, 0, {
     line_hl_group = hl_group,
+    virt_text = marker and { { marker, marker_hl_group or hl_group } } or nil,
+    virt_text_pos = marker and "inline" or nil,
     priority = 100,
   })
 end

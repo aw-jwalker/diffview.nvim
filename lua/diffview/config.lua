@@ -56,6 +56,14 @@ M.defaults = {
     icon = "*",
     hl_group = "DiffviewUnread",
   },
+  unified_diff = {
+    highlights = {
+      add = nil,
+      delete = nil,
+      word_add = nil,
+      word_delete = nil,
+    },
+  },
   icons = {
     folder_closed = "",
     folder_open = "",

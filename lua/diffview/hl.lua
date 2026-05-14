@@ -426,6 +426,27 @@ function M.get_hl_groups()
   }
 end
 
+local function apply_unified_diff_hl_config()
+  local conf = config.get_config().unified_diff or {}
+  local highlights = conf.highlights or {}
+  local group_map = {
+    add = "DiffviewUnifiedAdd",
+    delete = "DiffviewUnifiedDelete",
+    word_add = "DiffviewUnifiedWordAdd",
+    word_delete = "DiffviewUnifiedWordDelete",
+  }
+
+  for key, group in pairs(group_map) do
+    local spec = highlights[key]
+
+    if type(spec) == "string" then
+      M.hi_link(group, spec, { clear = true })
+    elseif type(spec) == "table" then
+      M.hi(group, vim.tbl_extend("force", spec, { explicit = true }))
+    end
+  end
+end
+
 M.hl_links = {
   Normal = "Normal",
   NonText = "NonText",
@@ -493,6 +514,7 @@ function M.setup()
     M.hi_link("Diffview" .. from, to, { default = true })
   end
 
+  apply_unified_diff_hl_config()
   M.update_diff_hl()
 end
 

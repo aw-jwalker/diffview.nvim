@@ -21,6 +21,14 @@ DEFAULT CONFIG                                  *diffview.defaults*
       icon = "*",             -- File panel marker text.
       hl_group = "DiffviewUnread",
     },
+    unified_diff = {
+      highlights = {
+        add = nil,            -- Highlight spec or group link for added lines.
+        delete = nil,         -- Highlight spec or group link for deleted virtual lines.
+        word_add = nil,       -- Highlight spec or group link for changed added words.
+        word_delete = nil,    -- Highlight spec or group link for changed deleted words.
+      },
+    },
     icons = {                 -- Only applies when use_icons is true.
       folder_closed = "",
       folder_open = "",

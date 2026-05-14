@@ -46,6 +46,17 @@ Recommended shared config:
     default_args = {
       DiffviewOpen = { "--imply-local" },
     },
+    unified_diff = {
+      highlights = {
+        -- Direct highlight specs are supported.
+        add = { bg = "#16351f" },
+        delete = { bg = "#3b1d1d" },
+        word_add = { bg = "#2b6b3f", style = "bold" },
+        word_delete = { bg = "#7a2f2f", style = "bold,strikethrough" },
+        -- Or link to your own highlight groups:
+        -- add = "MyDiffAdd",
+      },
+    },
   },
 }
 ```
@@ -265,6 +276,14 @@ require("diffview").setup({
     enabled = true,         -- Mark entries changed since they were last opened.
     icon = "*",             -- File panel marker text.
     hl_group = "DiffviewUnread",
+  },
+  unified_diff = {
+    highlights = {
+      add = nil,            -- Highlight spec or group link for added lines.
+      delete = nil,         -- Highlight spec or group link for deleted virtual lines.
+      word_add = nil,       -- Highlight spec or group link for changed added words.
+      word_delete = nil,    -- Highlight spec or group link for changed deleted words.
+    },
   },
   icons = {                 -- Only applies when use_icons is true.
     folder_closed = "",

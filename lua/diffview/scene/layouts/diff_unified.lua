@@ -229,6 +229,7 @@ DiffUnified.open_files = async.void(function(self)
       vim.wo.scrollbind = false
       vim.wo.cursorbind = false
       vim.wo.foldmethod = "manual"
+      vim.wo.signcolumn = "no"
     end)
   end
 

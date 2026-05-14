@@ -172,6 +172,8 @@ function M.hunks_to_render_instructions(hunks)
           type = "highlight_line",
           line = hunk.new_start + i - 1,
           hl_group = "DiffviewUnifiedAdd",
+          marker = "+ ",
+          marker_hl_group = "DiffviewUnifiedAdd",
         })
       end
     elseif hunk.type == "delete" then
@@ -209,6 +211,8 @@ function M.hunks_to_render_instructions(hunks)
           type = "highlight_line",
           line = hunk.new_start + i - 1,
           hl_group = "DiffviewUnifiedAdd",
+          marker = "~ ",
+          marker_hl_group = "DiffviewUnifiedAdd",
         })
       end
 
