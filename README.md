@@ -28,31 +28,48 @@ standard manual refresh paths.
 
 ## Installation
 
-Install the plugin with your package manager of choice. Replace
-`your-org/diffview.nvim` with the published repository for this fork.
+Install the plugin from the fork's `main` branch with your package manager of
+choice.
+
+Recommended shared config:
 
 ```lua
 -- lazy.nvim
 {
-  "your-org/diffview.nvim",
+  "aw-jwalker/diffview.nvim",
   opts = {
     view = {
       default = { layout = "diff_unified" },
       file_history = { layout = "diff_unified" },
+      merge_tool = { layout = "diff4_mixed" },
+    },
+    default_args = {
+      DiffviewOpen = { "--imply-local" },
     },
   },
 }
 ```
 
+The unified layout keeps normal diffview file navigation, renders file changes
+in one code window, supports `[c` and `]c` hunk navigation from both the file
+panel and the code window, and refreshes the file panel when files change
+outside Neovim.
+
+Other package managers use the same repository and setup options:
+
 ```lua
 -- Packer
 use {
-  "your-org/diffview.nvim",
+  "aw-jwalker/diffview.nvim",
   config = function()
     require("diffview").setup({
       view = {
         default = { layout = "diff_unified" },
         file_history = { layout = "diff_unified" },
+        merge_tool = { layout = "diff4_mixed" },
+      },
+      default_args = {
+        DiffviewOpen = { "--imply-local" },
       },
     })
   end,
@@ -61,7 +78,7 @@ use {
 
 ```vim
 " vim-plug
-Plug 'your-org/diffview.nvim'
+Plug 'aw-jwalker/diffview.nvim'
 ```
 
 For local development, clone this repository and point your plugin manager at
@@ -148,7 +165,7 @@ You can also provide additional paths to narrow down what files are shown:
 - `:DiffviewOpen HEAD~2 -- lua/diffview plugin`
 
 For information about additional `[options]`, visit the
-[documentation](https://github.com/sindrets/diffview.nvim/blob/main/doc/diffview.txt).
+[documentation](https://github.com/aw-jwalker/diffview.nvim/blob/main/doc/diffview.txt).
 
 Additional commands for convenience:
 

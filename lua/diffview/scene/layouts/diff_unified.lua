@@ -235,7 +235,7 @@ DiffUnified.open_files = async.void(function(self)
   self.emitter:emit("files_opened")
 end)
 
----FIXME
+---Unified diff uses a single visible file window; never replace it with a null window.
 ---@override
 ---@param rev Rev
 ---@param status string Git status symbol.
