@@ -62,42 +62,82 @@ local function is_git_path(view, path, is_git_event)
   return path:find("/%.git/") ~= nil or path:match("/%.git$") ~= nil
 end
 
-local function is_gitignored(view, path)
-  if not path then
-    return false
-  end
-
+local function gitignored_paths(view, paths)
   local top = view.adapter.ctx.toplevel
-  if not top or not path_starts_with(path, top) then
-    return false
+  if not top then
+    return nil
   end
 
-  local relpath = path:sub(#top + 2)
-  if relpath == "" then
-    return false
+  local relpaths = {}
+  for _, path in ipairs(paths) do
+    if not path_starts_with(path, top) then
+      return nil
+    end
+
+    local relpath = path:sub(#top + 2)
+    if relpath == "" then
+      return nil
+    end
+
+    relpaths[#relpaths + 1] = relpath
   end
 
   local cmd = vim.deepcopy(config.get_config().git_cmd)
-  vim.list_extend(cmd, { "-C", top, "check-ignore", "-q", "--", relpath })
-  vim.fn.system(cmd)
+  vim.list_extend(cmd, { "-C", top, "check-ignore", "--stdin" })
 
-  return vim.v.shell_error == 0
+  local out = vim.fn.system(cmd, table.concat(relpaths, "\n") .. "\n")
+  local code = vim.v.shell_error
+
+  if code ~= 0 and code ~= 1 then
+    logger:fmt_debug("[FileWatcher] git check-ignore failed with exit code %d.", code)
+    return nil
+  end
+
+  local ignored = {}
+  for _, relpath in ipairs(vim.split(out, "\n", { plain = true, trimempty = true })) do
+    ignored[relpath] = true
+  end
+
+  return ignored, relpaths
 end
 
-local function should_refresh(view, opt, event)
-  if not event.path then
-    return true
+local function should_refresh(view, opt, events)
+  local check_ignore_paths = {}
+
+  for _, event in ipairs(events) do
+    if not event.path then
+      return true
+    end
+
+    if is_git_path(view, event.path, event.is_git_event) then
+      return true
+    end
+
+    if not opt.ignore_gitignored then
+      return true
+    end
+
+    check_ignore_paths[#check_ignore_paths + 1] = event.path
   end
 
-  if is_git_path(view, event.path, event.is_git_event) then
-    return true
-  end
-
-  if opt.ignore_gitignored and is_gitignored(view, event.path) then
+  if #check_ignore_paths == 0 then
     return false
   end
 
-  return true
+  local ignored, relpaths = gitignored_paths(view, check_ignore_paths)
+
+  -- If we can't determine ignore status, refresh rather than miss a real edit.
+  if not ignored then
+    return true
+  end
+
+  for _, relpath in ipairs(relpaths) do
+    if not ignored[relpath] then
+      return true
+    end
+  end
+
+  return false
 end
 
 function FileWatcher.new(view, opt)
@@ -118,11 +158,8 @@ function FileWatcher.new(view, opt)
         return
       end
 
-      for _, event in ipairs(pending) do
-        if should_refresh(self.view, self.opt, event) then
-          self.view:update_file_panel()
-          return
-        end
+      if should_refresh(self.view, self.opt, pending) then
+        self.view:update_file_panel()
       end
     end)
   end)
