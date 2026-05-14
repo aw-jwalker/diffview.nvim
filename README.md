@@ -46,14 +46,15 @@ Recommended shared config:
     default_args = {
       DiffviewOpen = { "--imply-local" },
     },
+    -- Optional: override unified diff colors. Omit this block to use the
+    -- current colorscheme's DiffAdd/DiffDelete groups.
     unified_diff = {
       highlights = {
-        -- Direct highlight specs are supported.
-        add = { bg = "#16351f" },
-        delete = { bg = "#3b1d1d" },
-        word_add = { bg = "#2b6b3f", style = "bold" },
-        word_delete = { bg = "#7a2f2f", style = "bold,strikethrough" },
-        -- Or link to your own highlight groups:
+        add = { bg = "#223249" },
+        delete = { bg = "#5a3f26" },
+        word_add = { bg = "#2d4f67", style = "bold" },
+        word_delete = { bg = "#6f5128", style = "bold" },
+        -- You can also link to your own groups:
         -- add = "MyDiffAdd",
       },
     },

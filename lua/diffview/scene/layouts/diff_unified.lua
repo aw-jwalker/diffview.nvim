@@ -148,7 +148,9 @@ DiffUnified.render_unified = async.void(function(self)
 
   -- Scroll to first change if we have one and window is valid
   if result.first_change_line and self.b.id and api.nvim_win_is_valid(self.b.id) then
-    api.nvim_win_set_cursor(self.b.id, { result.first_change_line, 0 })
+    local line_count = api.nvim_buf_line_count(bufnr)
+    local target_line = math.min(math.max(result.first_change_line, 1), line_count)
+    api.nvim_win_set_cursor(self.b.id, { target_line, 0 })
     api.nvim_win_call(self.b.id, function()
       vim.cmd("normal! zz")
     end)

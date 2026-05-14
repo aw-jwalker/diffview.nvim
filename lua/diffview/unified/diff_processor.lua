@@ -179,7 +179,7 @@ function M.hunks_to_render_instructions(hunks)
     elseif hunk.type == "delete" then
       -- Pure deletions: show as virtual lines above
       -- Virtual lines appear above the line that follows the deletion
-      local anchor_line = hunk.new_start
+      local anchor_line = math.max(hunk.new_start, 1)
       for i, deleted_line in ipairs(hunk.old_lines) do
         table.insert(instructions, {
           type = "virtual_line",
@@ -192,7 +192,7 @@ function M.hunks_to_render_instructions(hunks)
     elseif hunk.type == "change" then
       -- Changes: show old lines as virtual, highlight new lines
       -- Also compute word-level diff for 1:1 changes
-      local anchor_line = hunk.new_start
+      local anchor_line = math.max(hunk.new_start, 1)
 
       -- Show deleted lines as virtual text
       for i, deleted_line in ipairs(hunk.old_lines) do

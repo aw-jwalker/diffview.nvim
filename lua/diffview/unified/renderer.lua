@@ -51,14 +51,16 @@ function M.render(bufnr, ns_id, old_lines, new_lines)
         hl_group = instr.hl_group,
       })
       -- Track first change
-      if not first_change_line or anchor < first_change_line then
-        first_change_line = anchor
+      local display_line = math.max(anchor, 1)
+      if not first_change_line or display_line < first_change_line then
+        first_change_line = display_line
       end
     elseif instr.type == "highlight_line" then
       M.highlight_line(bufnr, ns_id, instr.line, instr.hl_group, instr.marker, instr.marker_hl_group)
       -- Track first change
-      if not first_change_line or instr.line < first_change_line then
-        first_change_line = instr.line
+      local display_line = math.max(instr.line, 1)
+      if not first_change_line or display_line < first_change_line then
+        first_change_line = display_line
       end
     elseif instr.type == "word_diff" then
       M.apply_word_diff(bufnr, ns_id, instr.line, instr.word_diff)

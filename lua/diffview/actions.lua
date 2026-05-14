@@ -281,14 +281,15 @@ function M.jumpto_hunk(num, use_delta)
 
   local cursor = api.nvim_win_get_cursor(main.id)
   local cur_line = cursor[1]
+  local line_count = main.file and main.file.bufnr and api.nvim_buf_line_count(main.file.bufnr) or 1
 
   -- Find current hunk index based on cursor position
   local cur_idx = 0
   for i, hunk in ipairs(hunks) do
     -- A hunk covers from new_start to new_start + new_count - 1
     -- For deleted hunks (new_count == 0), they appear at new_start
-    local hunk_start = hunk.new_start
-    local hunk_end = hunk.new_count > 0 and (hunk.new_start + hunk.new_count - 1) or hunk.new_start
+    local hunk_start = math.max(hunk.new_start, 1)
+    local hunk_end = hunk.new_count > 0 and (hunk_start + hunk.new_count - 1) or hunk_start
 
     if cur_line >= hunk_start and cur_line <= hunk_end then
       cur_idx = i
@@ -324,9 +325,10 @@ function M.jumpto_hunk(num, use_delta)
   end
 
   local next_hunk = hunks[next_idx]
+  local target_line = utils.clamp(math.max(next_hunk.new_start, 1), 1, line_count)
 
   -- Jump to the hunk
-  api.nvim_win_set_cursor(main.id, { next_hunk.new_start, 0 })
+  api.nvim_win_set_cursor(main.id, { target_line, 0 })
   api.nvim_win_call(main.id, function()
     vim.cmd("normal! zz")
   end)
